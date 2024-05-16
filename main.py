@@ -25,8 +25,8 @@ config =      {'host'       : 'smtp.gmail.com',
                'username'   : 'nameulas@gmail.com',
                'password'   : 'dgfdfg',
                'from_name'  : 'ESP8266',
-               'to_name'    : 'Ulas Can',
-               'to'         : 'ulascankutay@gmail.com',
+               'to_name'    : 'Emine',
+               'to'         : 'emine.lalegns@gmail.com',
                'subject'    : 'Nem Orani Bilgileendirme',
                'text'       : 'nem oranı %10 altında'}
 
