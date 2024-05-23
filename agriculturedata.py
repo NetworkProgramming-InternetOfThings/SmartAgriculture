@@ -1,36 +1,70 @@
+import requests
+import time
+import json
 import matplotlib.pyplot as plt
 import networkx as nx
-import pandas as pd 
 
-# CSV dosyasını okuma
-df = pd.read_csv('"C:\Users\Emine\OneDrive\Masaüstü\Akıllı Tarım\veri.csv"')
+# ThingSpeak URL
+url = "https://api.thingspeak.com/channels/2511429/feeds.json?api_key=RNAIMH1HTZLK3XYF&results=2"
 
-# Graf oluşturma
-G = nx.Graph()
+# Veriyi ThingSpeak'den çekme fonksiyonu
+def fetch_data():
+    response = requests.get(url)
+    data = json.loads(response.text)
+    return data
 
-# Düğümleri ve kenarları ekleme
-for index, row in df.iterrows():
-    crop = row['Crop_Name']
-    G.add_node(crop, size=3000, color='skyblue', label=crop)  # Crop_Name düğümü ekle
+# Grafiği oluşturma fonksiyonu
+def create_graph(feed):
+    G = nx.Graph()
+    
+    # Düğümler ekleniyor
+    G.add_node(1, name='Hava Sicaklik', value=feed.get('field1', 'N/A'))
+    G.add_node(2, name='Hava Nem', value=feed.get('field2', 'N/A'))
+    G.add_node(3, name='Toprak Nem', value=feed.get('field3', 'N/A'))
+    G.add_node(4, name='Sulama Durumu', value=feed.get('field4', 'N/A'))
+    G.add_node(5, name='Sulama Saati', value=feed.get('field5', 'N/A'))
+    
+    # Yeni düğümler ekleniyor (ortalama değerler)
+    G.add_node(6, name='Ortalama Hava Nem', value='50% - 60%')
+    G.add_node(7, name='Ortalama Hava Sicaklik', value='20°C - 25°C')
+    G.add_node(8, name='Ortalama Toprak Nem', value='40% - 60%')  # Ortalama toprak nemi
+    
+    # Kenarlar ekleniyor (mantıksal bağlantılar)
+    G.add_edges_from([
+        (1, 3),  # Hava Sicaklik - Toprak Nem
+        (2, 3),  # Hava Nem - Toprak Nem
+        (3, 4),  # Toprak Nem - Sulama Durumu
+        (3, 5),  # Toprak Nem - Sulama Saati
+        (4, 5),  # Sulama Durumu - Sulama Saati
+        (2, 6),  # Hava Nem - Ortalama Hava Nem
+        (1, 7),  # Hava Sicaklik - Ortalama Hava Sicaklik
+        (3, 8)   # Toprak Nem - Ortalama Toprak Nem
+    ])
+    
+    return G
 
-    # Mineralleri düğüm olarak ekleme ve bitki ile mineraller arasında kenar oluşturma
-    for mineral, value in row.items():
-        if mineral != 'Crop_Name':
-            mineral_label = f"{mineral} ({value})"
-            G.add_node(mineral_label, size=1500, color='lightgreen', label=mineral_label)  # Her mineral için düğüm oluşturma
-            G.add_edge(crop, mineral_label)  # Bitkiler ile mineraller arasında kenar oluşturma
+# Grafiği çizme fonksiyonu
+def draw_graph(G):
+    pos = nx.spring_layout(G)
+    labels = nx.get_node_attributes(G, 'value')
+    node_labels = nx.get_node_attributes(G, 'name')
+    
+    # Düğümleri çizme
+    nx.draw(G, pos, with_labels=False, node_size=3000, node_color='skyblue', edge_color='gray')
+    
+    # Düğüm etiketlerini ve değerlerini çizme
+    custom_labels = {node: f"{node_labels[node]}\n{labels[node]}" for node in G.nodes()}
+    nx.draw_networkx_labels(G, pos, custom_labels, font_size=12, font_color='black')
+    
+    plt.show()
 
-# Grafı çizdirme
-plt.figure(figsize=(14, 10))
-
-# Crop_Name düğümlerinin rengini ve boyutunu ayarlama
-node_colors = [G.nodes[node]['color'] for node in G.nodes]
-node_sizes = [G.nodes[node]['size'] for node in G.nodes]
-
-# Düğümlerin konumunu belirleme
-pos = nx.spring_layout(G, k=0.50)
-
-nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color='gray', node_size=node_sizes, font_size=10, font_weight='bold')
-
-plt.title('Bitkiler ve Mineraller Arasındaki İlişkiler')
-plt.show()
+# Veriyi çekme ve grafiği sürekli olarak güncelleme döngüsü
+while True:
+    data = fetch_data()
+    
+    if 'feeds' in data and len(data['feeds']) > 0:
+        feed = data['feeds'][0]
+        G = create_graph(feed)
+        draw_graph(G)
+    
+    time.sleep(10)
